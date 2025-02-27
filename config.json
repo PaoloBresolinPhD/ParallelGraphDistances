@@ -1,3 +1,5 @@
 {
-    
+    "random_seed": 27,
+    "dataset_path": "./data/breast_cancer.txt",
+    "min_label_occurrences": 0
 }
