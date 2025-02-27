@@ -1,5 +1,4 @@
 import sys
-import os
 import json
 import torch
 from tumor_dataset import TumorDataset
