@@ -11,7 +11,7 @@ if __name__ == '__main__':
         settings = json.load(file)
     
     # load training data and create a TumorDataset object
-    train_data = TumorDataset(settings['train_dataset'])
+    train_data = TumorDataset(settings['dataset_path'])
 
     # compute the set of labels to be considered, based on the number of occurrences in the training set
     if settings['min_label_occurrences'] > 0:
