@@ -53,7 +53,7 @@ if __name__ == '__main__':
         sizes = np.empty(p,dtype = int)
         sizes[0] = cs[n_graphs //p -1]
         for i in range(1, p):
-            sizes[i] = cs[i * (n_graphs//p) - 1] - cs[i-1]
+            sizes[i] = cs[(i + 1) * (n_graphs//p) - 1] - sizes[i-1]
         
         displacements = np.insert((sizes),0,0)[:-1] 
         
