@@ -1,0 +1,21 @@
+Bootstrap: docker
+From:ubuntu:22.04
+
+%post
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+
+apt install -y python3.10 python3.10-venv python3.10-dev
+apt install -y git-all
+apt install -y python3-pip
+apt install -y python3-mpi4py
+
+pip3 install mpi4py networkx numpy tqdm
+pip3 install torch --index-url https://download.pytorch.org/whl/cpu
+
+mkdir $SINGULARITY_ROOTFS/PGD
+cd $SINGULARITY_ROOTFS/PGD
+git clone https://github.com/PaoloBresolinPhD/ParallelGraphDistances
+
+
+unset DEBIAN_FRONTEND
