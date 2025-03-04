@@ -3,9 +3,8 @@ import json
 import numpy as np
 from tumor_dataset import TumorDataset
 from utils import Utils
-#from graph_distances import GraphDistances
+from graph_distances import GraphDistances
 from mpi4py import MPI as MPI
-import pickle
 
 if __name__ == '__main__':
     
@@ -33,62 +32,111 @@ if __name__ == '__main__':
         n_graphs = len(dataset)
         print(f"The number of graphs in the dataset is {n_graphs}")
 
-        # initialize the array that will contain the ancestry set of each graph
-        ancestry_sets = np.empty(shape = n_graphs, dtype = set)
+        # initialize the array that will contain the distances between all pairs of graphs
+        distances = np.zeros((n_graphs, n_graphs))
 
-        # since we have an array of objects, we need to convert it into an array of bytes so that we can scatter it
-        # first, serialize each graph
-        pickled_graphs = [pickle.dumps(graph) for graph in dataset]
+        # initialize the array that will contain an array of ancestry sets for each process
+        ancestry_sets = np.empty(n_processes, dtype=object)
 
-        # convert each graph into an array of bytes 
-        byte_graphs = [np.frombuffer(pickled_graph, dtype=np.uint8) for pickled_graph in pickled_graphs]
+        # split the graphs across processes
+        n_graphs_per_process = n_graphs // n_processes
+        dataset_size_per_process = [n_graphs_per_process for process in range(n_processes)]
+        dataset_size_per_process[n_processes - 1] += n_graphs % n_processes                  # assign the remaining graphs to the last process so to preserve initial graph ordering
+        curr_pos = 0
+        process_graphs = []
+        for process in range(n_processes):
+            process_graphs.append(dataset[curr_pos:curr_pos + dataset_size_per_process[process]])
+            curr_pos += dataset_size_per_process[process]
 
-        # compute an array with the size of each graph in terms of number of bytes
-        graph_sizes_in_bytes = np.array([arr.size for arr in byte_graphs], dtype=int)
+        # print the number of graphs assigned to each process
+        for i in range(n_processes):
+            print(f"Process with rank {i} is assigned {len(process_graphs[i])} graphs")
 
-        # compute the cumulative sum of the sizes of the graphs
-        cumulative_sum = np.cumsum(graph_sizes_in_bytes)
+        # initialize the array that will contain the distances between all pairs of graphs in each process
+        current_distances_ring = np.empty(n_processes, dtype=object)
 
-        # create an array with the number of bytes to be sent to each process
-        sizes = np.empty(n_processes, dtype=int)
-        sizes[0] = cumulative_sum[n_graphs // n_processes - 1]
-        for i in range(1, n_processes):
-            sizes[i] = cumulative_sum[(i + 1) * (n_graphs // n_processes) - 1] - sizes[i-1]
-        
-        # compute the displacements
-        displacements = np.insert((sizes), 0, 0)[:-1] 
-        
-        # concatenate all bytes into one array
-        send_buffer = np.concatenate(byte_graphs)
-    
     # all non-root processes
     else:
 
-        # no buffer must be sent
-        send_buffer = None
+        # initialize the list that will contain the graphs assigned to the current process
+        process_graphs = []
 
-        # initialize the array that will contain the sizes
-        sizes = np.empty(n_processes, dtype=int)
+    # scatter the graphs across processes
+    process_graphs = comm.scatter(process_graphs, root=ROOT_PROCESS)
 
-        # no displacements must be computed
-        displacements = None 
+    # print the number of graphs assigned to the current process
+    print(f"Process with rank {rank} received {len(process_graphs)} graphs")
+
+    # compute the ancestry set of each graph assigned to the current process
+    process_ancestry_sets = np.empty(len(process_graphs), dtype=set)
+    for i, graph in enumerate(process_graphs):
+        process_ancestry_sets[i] = GraphDistances.ancestry_set(graph)
     
-    # broadcast sizes to all processes
-    comm.Bcast(sizes, root=ROOT_PROCESS)
+    # print the number of ancestry sets computed by the current process
+    print(f"Process with rank {rank} computed {len(process_ancestry_sets)} ancestry sets")
 
-    # allocate receive buffers
-    recv_buffer = np.empty(sizes[rank], dtype = np.uint8)
+    # gather the ancestry sets computed by all processes
+    ancestry_sets = comm.gather(process_ancestry_sets, root=ROOT_PROCESS)
 
-    # scatter the serialized data 
-    comm.Scatterv([send_buffer, sizes, displacements, MPI.BYTE], recv_buffer, root = ROOT_PROCESS)
+    # compute the distances between all pairs of graphs in the current process
+    current_distances = GraphDistances.compute_distances(process_ancestry_sets, process_ancestry_sets)
 
-    # deserialize the received objects
-    received_objects = pickle.loads(recv_buffer.tobytes()) # TODO: fix here
+    # gather the distances computed by all processes
+    current_distances_ring = comm.gather(current_distances, root=ROOT_PROCESS)
 
-    # print the number of received objects
-    print(f"Rank {rank} received {len(received_objects)} graphs")
+    # root process
+    if rank == ROOT_PROCESS:
+
+        # print the number of ancestry sets gathered by the root process from each process
+        for i in range(n_processes):
+            print(f"The root process gathered {len(ancestry_sets[i])} ancestry sets from the process with rank {i}")
+        
+        # print the shapes of the arrays with distances computed by each process
+        for i in range(n_processes):
+            print(f"The array with distances computed by the process with rank {i} has shape {current_distances_ring[i].shape}")
+
+        # fill the array that will contain the final distances with the distances computed by each process with the ancestry sets they computed
+        origin_i = 0
+        origin_j = 0
+        for process in range(n_processes):
+            for i in range(current_distances_ring[process].shape[0]):
+                for j in range(current_distances_ring[process].shape[1]):
+                    distances[origin_i + i, origin_j + j] = current_distances_ring[process][i, j]
+            origin_i += current_distances_ring[process].shape[0]
+            origin_j += current_distances_ring[process].shape[1]
 
 
-    # compute the tensor with the distances between all pairs of graphs in the training dataset
-    #train_distances = GraphDistances.compute_distances( , GraphDistances.ancestor_descendant_dist)
+    # compute all remaining distances in parallel by moving the ancestry sets in a ring fashion and pass them to processes
+
+    for i in range(1, n_processes // 2):
+
+
+        
+        # root process
+        if rank == ROOT_PROCESS:
+
+            # move the ancestry sets in a ring fashion
+            rolled_ancestry_sets = np.empty(n_processes, dtype=object)
+            for i in range(n_processes):
+                rolled_ancestry_sets[i] = ancestry_sets[(i + 1) % n_processes]
+        
+        # other non-root processes
+        else:
+
+            # initialize the list that will contain the ancestry sets received from the root process
+            rolled_ancestry_sets = []
+            
+        # scatter the rolled ancestry sets across processes
+        received_ancestry_set = comm.scatter(rolled_ancestry_sets, root=ROOT_PROCESS)
+
+
+        # compute the distances between all pairs of graphs in the current process
+        current_distances = GraphDistances.compute_distances(process_ancestry_sets, received_ancestry_set)
+
+        # gather the distances computed by all processes
+        current_distances_ring = comm.gather(current_distances, root=ROOT_PROCESS)
+        
+        # the root process fills the result matrix with the computations gathered from the other processes
+        if rank == ROOT_PROCESS:
+
     
