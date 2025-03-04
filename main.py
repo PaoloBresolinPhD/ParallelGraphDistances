@@ -139,4 +139,18 @@ if __name__ == '__main__':
         # the root process fills the result matrix with the computations gathered from the other processes
         if rank == ROOT_PROCESS:
 
+            # fill here with the code to fill the final distance matrix using the distances computed and gathered in current_distances_ring
+            pass
+    
+    # if the number of processes is even, then another complete roll iteration is needed
+    if n_processes % 2 == 0:
+
+        # do another complete roll iteration
+        pass
+    
+    # else, a rollmust be performed, but just the first half of it must be sent and used to compute the last part of the final matrix with distances
+    else:
+
+        # do a half roll iteration
+        pass
     
