@@ -37,7 +37,7 @@ if __name__ == '__main__':
         print(f"The number of graphs in the dataset is {n_graphs}")
 
         # initialize the array that will contain the distances between all pairs of graphs
-        distances = np.zeros((n_graphs, n_graphs))
+        distances = np.zeros((n_graphs, n_graphs), dtype=np.int32)
 
         # initialize the array that will contain an array of ancestry sets for each process
         ancestry_sets = np.empty(n_processes, dtype=object)
@@ -171,8 +171,6 @@ if __name__ == '__main__':
                 origin_r += block_to_insert.shape[0]
                 origin_c += block_to_insert.shape[1]
 
-            
-    
     # if the number of processes is even, then just half or a roll is needed
     if n_processes % 2 == 0:
 
@@ -229,5 +227,4 @@ if __name__ == '__main__':
     # if rank == ROOT_PROCESS:
     #     np.set_printoptions(threshold=sys.maxsize)
     #     print(distances)
-        
         
