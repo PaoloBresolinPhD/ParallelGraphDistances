@@ -10,8 +10,7 @@ apt install -y git-all
 apt install -y python3-pip
 apt install -y python3-mpi4py
 
-pip3 install mpi4py networkx numpy tqdm
-pip3 install torch --index-url https://download.pytorch.org/whl/cpu
+pip3 install mpi4py networkx numpy 
 
 mkdir $SINGULARITY_ROOTFS/PGD
 cd $SINGULARITY_ROOTFS/PGD
