@@ -48,7 +48,7 @@ class GraphDistances:
         n_graphs_2 = len(ancestry_sets_2)
 
         # initialize the numpy array to store the distances between all pairs of graphs in the two sets
-        distances = np.zeros((n_graphs_1, n_graphs_2))
+        distances = np.zeros((n_graphs_1, n_graphs_2), dtype=np.int32)
 
         # iterate over all pairs of graphs to compute distances
         for i in range(n_graphs_1):
