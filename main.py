@@ -107,8 +107,10 @@ if __name__ == '__main__':
 
 
     # compute all remaining distances in parallel by moving the ancestry sets in a ring fashion and pass them to processes
-
-    for i in range(1, n_processes // 2):
+    n_rolls = n_processes // 2
+    if n_processes % 2 == 1:
+        n_rolls += 1
+    for i in range(1, n_rolls):
 
 
         
@@ -127,11 +129,10 @@ if __name__ == '__main__':
             rolled_ancestry_sets = []
             
         # scatter the rolled ancestry sets across processes
-        received_ancestry_set = comm.scatter(rolled_ancestry_sets, root=ROOT_PROCESS)
-
+        received_ancestry_sets = comm.scatter(rolled_ancestry_sets, root=ROOT_PROCESS)
 
         # compute the distances between all pairs of graphs in the current process
-        current_distances = GraphDistances.compute_distances(process_ancestry_sets, received_ancestry_set)
+        current_distances = GraphDistances.compute_distances(process_ancestry_sets, received_ancestry_sets)
 
         # gather the distances computed by all processes
         current_distances_ring = comm.gather(current_distances, root=ROOT_PROCESS)
@@ -140,17 +141,30 @@ if __name__ == '__main__':
         if rank == ROOT_PROCESS:
 
             # fill here with the code to fill the final distance matrix using the distances computed and gathered in current_distances_ring
-            pass
+            
+            # compute the coordinates in the final distance matrix of the point where to start filling it with the gathered distances in the current roll iteration
+            origin_r = 0
+            origin_c = 0
+            for k in range(i):
+                origin_c += current_distances_ring[k].shape[0]
+            
+            # fill the matrix with the computed distances
+            for process in range(n_processes):
+                if origin_c == distances.shape[1]:
+                    origin_r = 0
+                    origin_c = distances.shape[1]
+                    for k in range(i):
+                        origin_c -= current_distances_ring[-1 - i].shape[0]
+                for r in range(current_distances_ring[process].shape[0]):
+                    for c in range(current_distances_ring[process].shape[1]):
+                        distances[origin_r + r, origin_c + c] = current_distances_ring[process][r, c]
+                origin_r += current_distances_ring[process].shape[0]
+                origin_c += current_distances_ring[process].shape[1]
+
+            
     
-    # if the number of processes is even, then another complete roll iteration is needed
+    # if the number of processes is even, then just half or a roll is needed
     if n_processes % 2 == 0:
 
-        # do another complete roll iteration
+        # perform half of a roll
         pass
-    
-    # else, a rollmust be performed, but just the first half of it must be sent and used to compute the last part of the final matrix with distances
-    else:
-
-        # do a half roll iteration
-        pass
-    
