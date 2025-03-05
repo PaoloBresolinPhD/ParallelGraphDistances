@@ -113,7 +113,7 @@ if __name__ == '__main__':
     n_rolls = n_processes // 2
     if n_processes % 2 == 1:
         n_rolls += 1
-    for i in range(1, n_rolls):
+    for roll in range(1, n_rolls):
 
         # root process
         if rank == ROOT_PROCESS:
@@ -144,7 +144,7 @@ if __name__ == '__main__':
             # compute the coordinates in the final distance matrix of the point where to start filling it with the gathered distances in the current roll iteration
             origin_r = 0
             origin_c = 0
-            for k in range(n_rolls):
+            for k in range(roll):
                 origin_c += current_distances_ring[k].shape[0]
             
             # fill the matrix with the computed distances
@@ -152,7 +152,7 @@ if __name__ == '__main__':
                 if origin_c == distances.shape[1]:
                     origin_r = 0
                     origin_c = distances.shape[1]
-                    for k in range(i):
+                    for k in range(roll):
                         origin_c -= current_distances_ring[-1 - k].shape[0]
                 for r in range(current_distances_ring[process].shape[0]):
                     for c in range(current_distances_ring[process].shape[1]):
