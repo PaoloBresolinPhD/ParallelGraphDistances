@@ -26,6 +26,9 @@ if __name__ == '__main__':
         
         # load training data and create a list of TumorGraph objects
         dataset = TumorDataset(settings['dataset_path'])
+
+        dataset.sample_one_graph_per_patient(rd_seed=27)                          # USED ONLY FOR DEBUGGING
+
         dataset  = Utils.flatten_list_of_lists(dataset.to_dataset_DiGraphs())
         
         # compute and print the number of graphs in the dataset
@@ -150,7 +153,7 @@ if __name__ == '__main__':
                     origin_r = 0
                     origin_c = distances.shape[1]
                     for k in range(i):
-                        origin_c -= current_distances_ring[-1 - i].shape[0]
+                        origin_c -= current_distances_ring[-1 - k].shape[0]
                 for r in range(current_distances_ring[process].shape[0]):
                     for c in range(current_distances_ring[process].shape[1]):
                         distances[origin_r + r, origin_c + c] = current_distances_ring[process][r, c]
