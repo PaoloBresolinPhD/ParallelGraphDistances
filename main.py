@@ -112,8 +112,6 @@ if __name__ == '__main__':
         n_rolls += 1
     for i in range(1, n_rolls):
 
-
-        
         # root process
         if rank == ROOT_PROCESS:
 
@@ -136,16 +134,14 @@ if __name__ == '__main__':
 
         # gather the distances computed by all processes
         current_distances_ring = comm.gather(current_distances, root=ROOT_PROCESS)
-        
+
         # the root process fills the result matrix with the computations gathered from the other processes
         if rank == ROOT_PROCESS:
-
-            # fill here with the code to fill the final distance matrix using the distances computed and gathered in current_distances_ring
             
             # compute the coordinates in the final distance matrix of the point where to start filling it with the gathered distances in the current roll iteration
             origin_r = 0
             origin_c = 0
-            for k in range(i):
+            for k in range(n_rolls):
                 origin_c += current_distances_ring[k].shape[0]
             
             # fill the matrix with the computed distances
@@ -167,4 +163,50 @@ if __name__ == '__main__':
     if n_processes % 2 == 0:
 
         # perform half of a roll
-        pass
+        
+        # root process
+        if rank == ROOT_PROCESS:
+
+            # move the ancestry sets in a ring fashion
+            rolled_ancestry_sets = np.empty(n_processes, dtype=object)
+            for i in range(n_processes):
+                rolled_ancestry_sets[i] = ancestry_sets[(i + 1) % n_processes]
+        
+        # other non-root processes
+        else:
+
+            # initialize the list that will contain the ancestry sets received from the root process
+            rolled_ancestry_sets = []
+            
+        # scatter the rolled ancestry sets across processes
+        received_ancestry_sets = comm.scatter(rolled_ancestry_sets, root=ROOT_PROCESS)
+
+        # only half of the processes have to compute the distances, the others would do exactly the same computations
+        if rank < n_processes // 2:
+            current_distances = GraphDistances.compute_distances(process_ancestry_sets, received_ancestry_sets)
+        else:
+            current_distances = None
+
+        # gather the distances computed by all processes
+        current_distances_ring = comm.gather(current_distances, root=ROOT_PROCESS)
+        
+        # the root process fills the result matrix with the computations gathered from the other processes
+        if rank == ROOT_PROCESS:
+            
+            # compute the coordinates in the final distance matrix of the point where to start filling it with the gathered distances in the current roll iteration
+            origin_r = 0
+            origin_c = 0
+            for k in range(n_rolls):
+                origin_c += current_distances_ring[k].shape[0]
+            
+            # fill the matrix with the computed distances
+            for process in range(n_processes):
+                if origin_c == distances.shape[1]:
+                    break                                                       # we completed half of a roll, so the final matrix is fulfilled
+                for r in range(current_distances_ring[process].shape[0]):
+                    for c in range(current_distances_ring[process].shape[1]):
+                        distances[origin_r + r, origin_c + c] = current_distances_ring[process][r, c]
+                origin_r += current_distances_ring[process].shape[0]
+                origin_c += current_distances_ring[process].shape[1]
+        
+        
