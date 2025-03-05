@@ -1,5 +1,6 @@
 import sys
 import json
+import copy
 import numpy as np
 from tumor_dataset import TumorDataset
 from utils import Utils
@@ -27,7 +28,7 @@ if __name__ == '__main__':
         # load training data and create a list of TumorGraph objects
         dataset = TumorDataset(settings['dataset_path'])
 
-        dataset.sample_one_graph_per_patient(rd_seed=27)                          # USED ONLY FOR DEBUGGING
+        # dataset.sample_one_graph_per_patient(rd_seed=27)                          # USED ONLY FOR DEBUGGING
 
         dataset  = Utils.flatten_list_of_lists(dataset.to_dataset_DiGraphs())
         
@@ -113,15 +114,18 @@ if __name__ == '__main__':
     n_rolls = n_processes // 2
     if n_processes % 2 == 1:
         n_rolls += 1
+    
+    rolled_ancestry_sets = copy.deepcopy(ancestry_sets)
     for roll in range(1, n_rolls):
 
         # root process
         if rank == ROOT_PROCESS:
 
             # move the ancestry sets in a ring fashion
-            rolled_ancestry_sets = np.empty(n_processes, dtype=object)
+            temp = rolled_ancestry_sets[0]
             for i in range(n_processes):
-                rolled_ancestry_sets[i] = ancestry_sets[(i + 1) % n_processes]
+                rolled_ancestry_sets[i] = rolled_ancestry_sets[(i + 1) % n_processes]
+            rolled_ancestry_sets[-1] = temp
         
         # other non-root processes
         else:
@@ -148,17 +152,24 @@ if __name__ == '__main__':
                 origin_c += current_distances_ring[k].shape[0]
             
             # fill the matrix with the computed distances
+            transpose = False
             for process in range(n_processes):
                 if origin_c == distances.shape[1]:
                     origin_r = 0
                     origin_c = distances.shape[1]
                     for k in range(roll):
                         origin_c -= current_distances_ring[-1 - k].shape[0]
-                for r in range(current_distances_ring[process].shape[0]):
-                    for c in range(current_distances_ring[process].shape[1]):
-                        distances[origin_r + r, origin_c + c] = current_distances_ring[process][r, c]
-                origin_r += current_distances_ring[process].shape[0]
-                origin_c += current_distances_ring[process].shape[1]
+                    transpose = True
+                block_to_insert = copy.deepcopy(current_distances_ring[process])
+                if transpose:
+                    block_to_insert = np.transpose(block_to_insert)
+                print(f"n_rows_block: {block_to_insert.shape[0]}")
+                print(f"n_cols_block: {block_to_insert.shape[1]}")
+                for r in range(block_to_insert.shape[0]):
+                    for c in range(block_to_insert.shape[1]):
+                        distances[origin_r + r, origin_c + c] = block_to_insert[r, c]
+                origin_r += block_to_insert.shape[0]
+                origin_c += block_to_insert.shape[1]
 
             
     
@@ -171,10 +182,11 @@ if __name__ == '__main__':
         if rank == ROOT_PROCESS:
 
             # move the ancestry sets in a ring fashion
-            rolled_ancestry_sets = np.empty(n_processes, dtype=object)
+            temp = rolled_ancestry_sets[0]
             for i in range(n_processes):
-                rolled_ancestry_sets[i] = ancestry_sets[(i + 1) % n_processes]
-        
+                rolled_ancestry_sets[i] = rolled_ancestry_sets[(i + 1) % n_processes]
+            rolled_ancestry_sets[-1] = temp
+
         # other non-root processes
         else:
 
@@ -204,6 +216,7 @@ if __name__ == '__main__':
             
             # fill the matrix with the computed distances
             for process in range(n_processes):
+                print(f"Roll: {n_rolls}, process: {process}, origin_r: {origin_r}, origin_c: {origin_c}")
                 if origin_c == distances.shape[1]:
                     break                                                       # we completed half of a roll, so the final matrix is fulfilled
                 for r in range(current_distances_ring[process].shape[0]):
@@ -211,5 +224,10 @@ if __name__ == '__main__':
                         distances[origin_r + r, origin_c + c] = current_distances_ring[process][r, c]
                 origin_r += current_distances_ring[process].shape[0]
                 origin_c += current_distances_ring[process].shape[1]
+
+    
+    # if rank == ROOT_PROCESS:
+    #     np.set_printoptions(threshold=sys.maxsize)
+    #     print(distances)
         
         
