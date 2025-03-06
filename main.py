@@ -28,7 +28,7 @@ if __name__ == '__main__':
         # load training data and create a list of TumorGraph objects
         dataset = TumorDataset(settings['dataset_path'])
 
-        # dataset.sample_one_graph_per_patient(rd_seed=27)                          # USED ONLY FOR DEBUGGING
+        dataset.sample_one_graph_per_patient(rd_seed=27)                          # USED ONLY FOR DEBUGGING
 
         dataset  = Utils.flatten_list_of_lists(dataset.to_dataset_DiGraphs())
         
@@ -224,7 +224,7 @@ if __name__ == '__main__':
                 origin_c += current_distances_ring[process].shape[1]
 
     
-    # if rank == ROOT_PROCESS:
-    #     np.set_printoptions(threshold=sys.maxsize)
-    #     print(distances)
+    #if rank == ROOT_PROCESS:
+    #    np.set_printoptions(threshold=sys.maxsize)
+    #    print(distances)
         
