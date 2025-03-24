@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: ubuntu:20.04  # Ensure compatibility with your cluster's OS
+From: ubuntu:20.04  
 
 %post
     export DEBIAN_FRONTEND=noninteractive
@@ -13,10 +13,10 @@ From: ubuntu:20.04  # Ensure compatibility with your cluster's OS
         libhwloc-dev \
         libopenmpi-dev
 
-    # Install GCC (ensure same version as the cluster)
+    # Install GCC 
     apt-get install -y gcc-8 g++-8
 
-    # Install OpenMPI 4.1.1 (same as the cluster)
+    # Install OpenMPI 4.1.1 (same as CAPRI)
     wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.1.tar.gz
     tar -xzf openmpi-4.1.1.tar.gz && cd openmpi-4.1.1
     ./configure --prefix=/usr/local/openmpi-4.1.1 --enable-mpirun-prefix-by-default
