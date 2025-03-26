@@ -1,0 +1,18 @@
+Bootstrap: docker
+From:ubuntu:22.04
+
+%post
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y libopenmpi-dev openmpi-bin
+apt install -y python3 python3-pip
+apt install -y git-all
+
+pip3 install mpi4py networkx numpy 
+
+mkdir $SINGULARITY_ROOTFS/PGD
+cd $SINGULARITY_ROOTFS/PGD
+git clone https://github.com/PaoloBresolinPhD/ParallelGraphDistances
+
+
+unset DEBIAN_FRONTEND
